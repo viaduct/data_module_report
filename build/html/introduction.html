@@ -1,0 +1,219 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Introduction &#8212; Data Module Development Report 1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="top" title="Data Module Development Report 1 documentation" href="index.html" />
+    <link rel="next" title="Shell" href="shell.html" />
+    <link rel="prev" title="Data Module Development Report" href="index.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="introduction">
+<span id="id1"></span><h1>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="background">
+<h2>Background<a class="headerlink" href="#background" title="Permalink to this headline">¶</a></h2>
+<p>Most programming languages provide their own way to store and fetch data
+used by software, such as using plain variable or container objects.
+They are convenient to be used temporary usage such as storing data for
+scope for functions and objects, but lack at features for long-standing
+data.</p>
+<p>There are some applications requires data managing system for complex,
+long-standing data which comes with data modification event, tree-like
+structure, modification undoing and redoing, and ownership and dependency
+management among data items. To fulfill those requirements, building
+separate library becomes mandatory.</p>
+</div>
+<div class="section" id="id2">
+<h2>Introduction<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h2>
+<p><em>Data Module</em>(MD) introduces a library structure to build tree-like data
+structure which fulfills requirements listed above. It&#8217;s library structure,
+not a concrete library, and different libraries can be built from this
+structure.</p>
+<img alt="_images/image_1.png" src="_images/image_1.png" />
+<div class="section" id="item-and-shell">
+<h3>Item and Shell<a class="headerlink" href="#item-and-shell" title="Permalink to this headline">¶</a></h3>
+<p>MD provides 2 concepts to form a data tree, <em>Item</em> and <em>Shell</em>. An Item takes
+dictionary of Shells which uses enumeration or string as key. A Shell takes
+other Items or primitives in the form of list, set, or map container or just
+single.</p>
+</div>
+<div class="section" id="item-ownership">
+<h3>Item Ownership<a class="headerlink" href="#item-ownership" title="Permalink to this headline">¶</a></h3>
+<p>When a Shell takes other Items, it can take them as children with taking
+ownership, or as referring Items without ownership. Ownership affects the
+lifetime of its owner Item. An Item can have multiple owners, and if at
+least one owner exists, the Item is ensured not to be deleted at that moment.
+Still, it does not mean that an Item with no owner must go to deletion
+process soon, since there are more factors which affects to the lifetime.</p>
+</div>
+<div class="section" id="item-referring">
+<h3>Item Referring<a class="headerlink" href="#item-referring" title="Permalink to this headline">¶</a></h3>
+<p>Ownership is not the only way to take other Items: there&#8217;s one more, taking
+reference. For an Item, being referred from other Items does not affect to
+its lifetime, and whenever referring target becomes Expired or Deleted,
+referring is automatically disconnected.</p>
+</div>
+<div class="section" id="item-refer-info">
+<h3>Item Refer Info<a class="headerlink" href="#item-refer-info" title="Permalink to this headline">¶</a></h3>
+<p>If an Item is referred by another Item, regardless whether it&#8217;s just simple
+referring or taking ownership, the referred Item knows which other Items
+are referring itself. When an Item refers another, it adds <em>Item Refer Info</em>
+to the referred Item. Item Refer Info has reference of Shell which is
+containing itself.</p>
+</div>
+<div class="section" id="ownership-from-general-c-instance">
+<span id="id3"></span><h3>Ownership from general C++ instance<a class="headerlink" href="#ownership-from-general-c-instance" title="Permalink to this headline">¶</a></h3>
+<p>Ownership from non-Item object is another factor which determines an Item&#8217;s
+lifetime. If an C++ instances calls <code class="docutils literal"><span class="pre">Item::ownership()</span> <span class="pre">:</span> <span class="pre">ItemOwnership</span></code>,
+the Item creates and adds <em>Item Ownership Info</em> to set, and returns
+<em>Item Ownership</em> instance, which is not copyable but movable, and calls
+<code class="docutils literal"><span class="pre">Item::freeOwnership(ItemOwnership*)</span></code> when destructed or
+<code class="docutils literal"><span class="pre">ItemOwnership::free()</span></code> is called. Item Ownership Info is accessable via
+Item Ownership, and owner of Item Ownership instance can send additional
+informations by using it.</p>
+</div>
+<div class="section" id="states-of-item">
+<h3>States of Item<a class="headerlink" href="#states-of-item" title="Permalink to this headline">¶</a></h3>
+<p>There are 3 states for an Item: they are <em>Valid</em>, <em>Expired</em>, and <em>Deleted</em>.
+Valid state is what its name says: it&#8217;s valid, accessable, and modifyable.
+An Item which is root or owned by at least one Valid Item is Valid. Otherwise,
+it becomes Expired. An Item Expired can become Valid again unless it goes to
+Deleted state.
+Expired item is still alive in physical memory, and
+in languages which uses physical pointer such as C/C++, Expired item will be
+stored in the same memory location even if it goes to Valid state.</p>
+<p>An Item with Expired state may still have some factors which prevent the
+Item not to be Deleted due to some reasons, such as it can be Valid if
+undoing function is invoked. <em>Non-Item Item Lifetime Factor</em>(NIILF)
+is the term points these factors, and one of them is
+<a class="reference internal" href="#ownership-from-general-c-instance">ownership from general c++ instance</a>.</p>
+</div>
+<div class="section" id="root-item">
+<h3>Root Item<a class="headerlink" href="#root-item" title="Permalink to this headline">¶</a></h3>
+<p>An Item can be set as root. If an Item is root,</p>
+</div>
+<div class="section" id="item-event">
+<h3>Item event<a class="headerlink" href="#item-event" title="Permalink to this headline">¶</a></h3>
+<p>An Item propagates related events by using callback which takes
+const reference of <em>Item Event</em> as parameter.
+<code class="docutils literal"><span class="pre">Item::listen(function)</span> <span class="pre">:</span> <span class="pre">ItemEventConnection</span></code> is used to add event listener
+and <code class="docutils literal"><span class="pre">Item::stopListen(ItemEventConnection*)</span></code> is used to disconnect it.
+<code class="docutils literal"><span class="pre">ItemEventConnection::disconnect()</span></code> is convenient function which simply
+calls <code class="docutils literal"><span class="pre">Item::stopListen()</span></code> with <code class="docutils literal"><span class="pre">this</span></code> pointer.</p>
+</div>
+<div class="section" id="accessing-to-shell">
+<h3>Accessing to Shell<a class="headerlink" href="#accessing-to-shell" title="Permalink to this headline">¶</a></h3>
+<p>It&#8217;s not intended to use Shell directly for the library users, since
+deep understanding of the library and lots of <code class="docutils literal"><span class="pre">static_cast</span></code> will be
+needed. Use adapter pattern to communicate with Shell in client&#8217;s code.</p>
+<p>For more detailed informations, read rest of the document.</p>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Introduction</a><ul>
+<li><a class="reference internal" href="#background">Background</a></li>
+<li><a class="reference internal" href="#id2">Introduction</a><ul>
+<li><a class="reference internal" href="#item-and-shell">Item and Shell</a></li>
+<li><a class="reference internal" href="#item-ownership">Item Ownership</a></li>
+<li><a class="reference internal" href="#item-referring">Item Referring</a></li>
+<li><a class="reference internal" href="#item-refer-info">Item Refer Info</a></li>
+<li><a class="reference internal" href="#ownership-from-general-c-instance">Ownership from general C++ instance</a></li>
+<li><a class="reference internal" href="#states-of-item">States of Item</a></li>
+<li><a class="reference internal" href="#root-item">Root Item</a></li>
+<li><a class="reference internal" href="#item-event">Item event</a></li>
+<li><a class="reference internal" href="#accessing-to-shell">Accessing to Shell</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">Data Module Development Report</a></li>
+      <li>Next: <a href="shell.html" title="next chapter">Shell</a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/introduction.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Viaduct.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4.9</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.8</a>
+      
+      |
+      <a href="_sources/introduction.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
